@@ -1,0 +1,53 @@
+version: '3.9'
+
+services:
+
+  nodeserver:
+    build: 
+      context: node
+      dockerfile: Dockerfile.prod
+    image: fullcycle/node:prod
+    container_name: node
+    networks:
+      - node-nginx-network
+    tty: true
+    depends_on:
+      db:
+        condition: service_healthy
+  
+  nginxserver:
+    build: 
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: fullcycle/nginx:latest
+    container_name: nginx
+    networks: 
+      - node-nginx-network
+    ports: 
+      - "8080:80"
+    depends_on:
+      - "nodeserver"
+
+  db:
+    image: mysql:5.7
+    command: --innodb-use-native-aio=0
+    container_name: db
+    restart: always
+    tty: true
+    volumes:
+      - ./init_db:/docker-entrypoint-initdb.d
+      - ./mysql:/var/lib/mysql
+    environment: 
+      - MYSQL_DATABASE=nodedb
+      - MYSQL_ROOT_PASSWORD=root
+    networks: 
+      - node-nginx-network
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+
+networks: 
+  node-nginx-network:
+    driver: bridge      
