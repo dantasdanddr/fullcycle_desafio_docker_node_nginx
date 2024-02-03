@@ -4,15 +4,21 @@ services:
 
   nodeserver:
     build: 
-      context: node
-      dockerfile: Dockerfile.prod
-    image: fullcycle/node:prod
+      context: ./node
+      dockerfile: Dockerfile
+    image: fullcycle/node:latest
     container_name: node
     networks:
       - node-nginx-network
     volumes:
       - ./node:/usr/src/app
+    entrypoint: sh -c "npm install npm@latest && node ./index.js"
     tty: true
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "3000"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
     depends_on:
       db:
         condition: service_healthy
@@ -28,7 +34,8 @@ services:
     ports: 
       - "8080:80"
     depends_on:
-      - "nodeserver"
+      nodeserver:
+        condition: service_healthy
 
   db:
     image: mysql:5.7
@@ -45,9 +52,10 @@ services:
     networks: 
       - node-nginx-network
     healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
 
 
 networks: 
